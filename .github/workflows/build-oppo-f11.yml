@@ -81,7 +81,7 @@ env:
   GENERATE_CHIP: "mediatek-mt6771"
 
   BUILD_DEBUGGER: "true"
-  SKIP_PATCH: "false"
+  SKIP_PATCH: "true"
 
   BUILD_OTHER_CONFIG: "false"
   MERGE_CONFIG_FILES: ""
@@ -110,6 +110,12 @@ jobs:
 
       - name: 🪝 Patch Kernel of SUSFS
         uses: ./.github/workflows/patch-susfs
+
+      - name: 🩹 Oppo F11 SUSFS 2.4 hand-merge (namespace/fdinfo/task_mmu)
+        run: |
+          cd $GITHUB_WORKSPACE/device_kernel
+          patch -p1 < /tmp/Patches/oppo_f11/susfs_24_fix.patch || { echo '[-] Oppo F11 susfs fix patch failed!'; exit 1; }
+          echo '[+] Oppo F11 susfs fix patch applied.'
 
       - name: 🔗 Patch for inline hook
         uses: ./.github/workflows/patch-no-kprobe

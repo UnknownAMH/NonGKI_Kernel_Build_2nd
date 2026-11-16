@@ -1,0 +1,109 @@
+diff --git a/fs/namespace.c b/fs/namespace.c
+index 06c601b78..80a2e7254 100755
+--- a/fs/namespace.c
++++ b/fs/namespace.c
+@@ -26,6 +26,9 @@
+ #include <linux/bootmem.h>
+ #include <linux/task_work.h>
+ #include <linux/sched/task.h>
++#ifdef CONFIG_KSU_SUSFS
++#include <linux/susfs_def.h>
++#endif // #ifdef CONFIG_KSU_SUSFS
+ 
+ #include "pnode.h"
+ #include "internal.h"
+@@ -37,6 +40,15 @@
+ #endif /* CONFIG_OPLUS_MOUNT_BLOCK */
+ #endif /* CONFIG_OPLUS_SECURE_GUARD*/
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
++#include <linux/jump_label.h>
++extern bool susfs_is_current_ksu_domain(void);
++extern struct static_key_true susfs_is_sdcard_android_data_not_decrypted;
++
++#define CL_COPY_MNT_NS BIT(25) /* used by copy_mnt_ns() */
++
++#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
++
+ /* Maximum number of mounts in a mount namespace */
+ unsigned int sysctl_mount_max __read_mostly = 100000;
+ 
+diff --git a/fs/notify/fdinfo.c b/fs/notify/fdinfo.c
+index 823085d2e..84b6449a8 100644
+--- a/fs/notify/fdinfo.c
++++ b/fs/notify/fdinfo.c
+@@ -106,6 +106,60 @@ static void inotify_fdinfo(struct seq_file *m, struct fsnotify_mark *mark)
+ 	inode_mark = container_of(mark, struct inotify_inode_mark, fsn_mark);
+ 	inode = igrab(mark->connector->inode);
+ 	if (inode) {
++#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
++		if (susfs_is_current_app_uid()) {
++			bool is_fuse = false;
++			if (susfs_is_inode_sus_kstat(inode, &is_fuse)) {
++				unsigned long ino = inode->i_ino;
++				dev_t dev = inode->i_sb->s_dev;
++				susfs_sus_kstat_spoof_inotify_fdinfo(&ino, &dev);
++				seq_printf(m, "inotify wd:%x ino:%lx sdev:%x mask:%x ignored_mask:0 ",
++						inode_mark->wd, ino, dev,
++						mark->mask & IN_ALL_EVENTS);
++				show_mark_fhandle(m, inode);
++				seq_putc(m, '\n');
++				iput(inode);
++				return;
++			}
++		}
++#endif // #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
++#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
++		if (likely(susfs_is_current_proc_umounted())) {
++			struct mount *mnt = real_mount(file->f_path.mnt);
++			if (mnt->mnt_id >= DEFAULT_KSU_MNT_ID) {
++				struct path path;
++				char *pathname = kmalloc(PAGE_SIZE, GFP_KERNEL);
++				char *dpath;
++				if (!pathname) {
++					goto orig_flow;
++				}
++				dpath = d_path(&file->f_path, pathname, PAGE_SIZE);
++				if (!dpath) {
++					goto out_kfree;
++				}
++				if (kern_path(dpath, 0, &path)) {
++					goto out_kfree;
++				}
++				if (!d_backing_inode(path.dentry)) {
++					goto out_path_put;
++				}
++				seq_printf(m, "inotify wd:%x ino:%lx sdev:%x mask:%x ignored_mask:0 ",
++						inode_mark->wd, d_backing_inode(path.dentry)->i_ino, d_backing_inode(path.dentry)->i_sb->s_dev,
++						mark->mask & IN_ALL_EVENTS);
++				show_mark_fhandle(m, d_backing_inode(path.dentry));
++				seq_putc(m, '\n');
++				path_put(&path);
++				kfree(pathname);
++				iput(inode);
++				return;
++out_path_put:
++				path_put(&path);
++out_kfree:
++				kfree(pathname);
++			}
++		}
++orig_flow:
++#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+ 		/*
+ 		 * IN_ALL_EVENTS represents all of the mask bits
+ 		 * that we expose to userspace.  There is at
+diff --git a/fs/proc/task_mmu.c b/fs/proc/task_mmu.c
+index 0138d0467..bbf9b65dd 100644
+--- a/fs/proc/task_mmu.c
++++ b/fs/proc/task_mmu.c
+@@ -19,6 +19,9 @@
+ #include <linux/shmem_fs.h>
+ #include <linux/uaccess.h>
+ #include <linux/mm_inline.h>
++#if defined(CONFIG_KSU_SUSFS_SUS_KSTAT) || defined(CONFIG_KSU_SUSFS_SUS_MAP) || defined(CONFIG_KSU_SUSFS_OPEN_REDIRECT)
++#include <linux/susfs_def.h>
++#endif // #if defined(CONFIG_KSU_SUSFS_SUS_KSTAT) || defined(CONFIG_KSU_SUSFS_SUS_MAP) || defined(CONFIG_KSU_SUSFS_OPEN_REDIRECT)
+ 
+ #include <asm/elf.h>
+ #include <asm/tlb.h>
