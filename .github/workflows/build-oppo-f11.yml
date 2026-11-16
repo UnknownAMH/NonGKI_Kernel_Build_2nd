@@ -120,18 +120,20 @@ jobs:
       - name: 🔗 Patch for inline hook
         uses: ./.github/workflows/patch-no-kprobe
 
-      # Re:Kernel disabled for now: my sed delimiter clashed with the `||` in the pattern
-      # (fix when re-enabling: sed -i 's/cgroup_task_frozen(task) || //' rekernel_extra.patch)
-      # - name: 🧰 Patch Re:Kernel (Oppo F11 cgroup-v1 adapted)
-      #   run: |
-      #     cd $GITHUB_WORKSPACE/device_kernel
-      #     cp /tmp/Patches/Rekernel/rekernel_patches.sh ./
-      #     bash rekernel_patches.sh
-      #     cp /tmp/Patches/Rekernel/rekernel_extra.patch ./
-      #     sed -i 's/cgroup_task_frozen(task) || //' rekernel_extra.patch
-      #     patch -p1 < rekernel_extra.patch || { echo '[-] Re:Kernel patch failed!'; exit 1; }
-      #     echo "CONFIG_REKERNEL=y" >> ./arch/${{ env.KERNEL_ARCH }}/configs/${{ env.DEFCONFIG_NAME }}
-      #     echo '[+] Re:Kernel patched (cgroup v1 adaptation).'
+      # Re:Kernel with cgroup-v1 adaptation (Oppo 4.14 has no cgroup v2 freezer;
+      # a v2 task_struct backport would break prebuilt module CRCs under MODVERSIONS)
+      - name: 🧰 Patch Re:Kernel (Oppo F11 cgroup-v1 adapted)
+        run: |
+          cd $GITHUB_WORKSPACE/device_kernel
+          cp /tmp/Patches/Rekernel/rekernel_patches.sh ./
+          bash rekernel_patches.sh
+          cp /tmp/Patches/Rekernel/rekernel_extra.patch ./
+          # drop the v2-only cgroup_task_frozen() call (freezer.h is already included by the patch)
+          sed -i 's/cgroup_task_frozen(task) || //' rekernel_extra.patch
+          grep -q 'return (cgroup_freezing(task));' rekernel_extra.patch || { echo '[-] frozen_task_group sed failed!'; exit 1; }
+          patch -p1 < rekernel_extra.patch || { echo '[-] Re:Kernel patch failed!'; exit 1; }
+          echo "CONFIG_REKERNEL=y" >> ./arch/${{ env.KERNEL_ARCH }}/configs/${{ env.DEFCONFIG_NAME }}
+          echo '[+] Re:Kernel patched (cgroup v1 adaptation).'
 
       - name: 💿 Patch Kernel of Droidspaces
         uses: ./.github/workflows/patch-droidspaces
