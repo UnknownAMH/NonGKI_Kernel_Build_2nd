@@ -120,6 +120,15 @@ jobs:
             $GITHUB_WORKSPACE/vendor_repo
           ln -s $GITHUB_WORKSPACE/vendor_repo/source/vendor $GITHUB_WORKSPACE/vendor
           ls $GITHUB_WORKSPACE/vendor/oplus/kernel | head -5
+          # One drifted file vs the verified local copy: its #else branch (taken
+          # when TARGET_PRODUCT is unset in kernel-only builds) includes
+          # <soc/qcom/smem.h>, a QC header absent from this MT6771 tree. The
+          # verified local copy uses <linux/uaccess.h> here — restore that.
+          sed -i 's|#include <soc/qcom/smem.h>|#include <linux/uaccess.h>|' \
+            $GITHUB_WORKSPACE/vendor_repo/source/vendor/oplus/secure/common/bsp/drivers/oppo_secure_common/oppo_secure_common.c
+          grep -q 'linux/uaccess.h' $GITHUB_WORKSPACE/vendor_repo/source/vendor/oplus/secure/common/bsp/drivers/oppo_secure_common/oppo_secure_common.c \
+            && echo "[+] oppo_secure_common include drift fixed." \
+            || { echo '[-] oppo_secure_common sed failed!'; exit 1; }
           echo "[+] vendor/ in place — symlink targets resolved."
 
       - name: 🪝 Patch Kernel of SUSFS
