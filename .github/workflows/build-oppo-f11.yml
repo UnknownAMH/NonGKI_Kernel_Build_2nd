@@ -108,6 +108,20 @@ jobs:
       - name: ⚙️ Get necessary tools
         uses: ./.github/workflows/build-ready
 
+      # The kernel tree has 54 symlinks pointing into ../vendor/ (Oppo AOSP layout:
+      # kernel + vendor sit side by side). CI only has the kernel repo, so provide
+      # the genuine Oppo vendor source (all 54 targets verified inside oplus/ and
+      # mediatek/proprietary/oplus/) — mirrors the local layout used for the
+      # verified local build.
+      - name: 📦 Provide vendor symlink targets
+        run: |
+          git clone --depth=1 -b oppo/mt6771_r_11 \
+            https://github.com/oppo-source/android_kernel_modules_oppo_mt6771.git \
+            $GITHUB_WORKSPACE/vendor_repo
+          ln -s $GITHUB_WORKSPACE/vendor_repo/source/vendor $GITHUB_WORKSPACE/vendor
+          ls $GITHUB_WORKSPACE/vendor/oplus/kernel | head -5
+          echo "[+] vendor/ in place — symlink targets resolved."
+
       - name: 🪝 Patch Kernel of SUSFS
         uses: ./.github/workflows/patch-susfs
 
