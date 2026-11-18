@@ -261,7 +261,10 @@ jobs:
           # Module-to-module deps: wmt_chrdev_wifi/wlan_drv_gen3/bt_drv use symbols
           # exported by wmt_drv (mtk_wcn_wmt_func_on/off, ...). Standalone 'make M='
           # builds do not see each other's Module.symvers, so chain them.
-          EXTRA_SYMS=""
+          # This 4.14 modpost reads only ONE extra symvers file (-e stores a
+          # single entry), so merge every previous module's exports into one.
+          EXTRA_SYMS=/tmp/vendor-extra.symvers
+          : > "$EXTRA_SYMS"
           for pair in \
             "wmt_drv.ko connectivity/common" \
             "wmt_chrdev_wifi.ko connectivity/wlan/adaptor" \
@@ -274,7 +277,7 @@ jobs:
             LOG=/tmp/mod-$1.log
             EXTRA_ARG=""
             if [ -n "$EXTRA_SYMS" ]; then EXTRA_ARG="KBUILD_EXTRA_SYMBOLS=$EXTRA_SYMS"; fi
-            echo "    extra symbols: ${EXTRA_SYMS:-none}"
+            echo "    extra symbols: $EXTRA_SYMS ($(wc -l < "$EXTRA_SYMS") exported)"
             if ! make -j$(nproc) O=out ARCH=arm64 CC="ccache clang" \
                    CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE="$CROSS_COMPILE" \
                    $EXTRA_ARG KBUILD_MODPOST_WARN=1 M="$MOD_SRC/$2" modules 2>&1 | tee "$LOG"; then
@@ -285,7 +288,7 @@ jobs:
             [ -f "$MOD_SRC/$2/$1" ] || { echo "[-] $1 not produced"; exit 1; }
             # export this module's symbols to the modules built after it
             if [ -f "$MOD_SRC/$2/Module.symvers" ]; then
-              EXTRA_SYMS="${EXTRA_SYMS:+$EXTRA_SYMS }$MOD_SRC/$2/Module.symvers"
+              cat "$MOD_SRC/$2/Module.symvers" >> "$EXTRA_SYMS"
             fi
             "$OBJCOPY" --strip-debug "$MOD_SRC/$2/$1" "out/vendor-modules/$1"
           done
