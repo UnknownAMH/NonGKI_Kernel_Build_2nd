@@ -127,19 +127,12 @@ jobs:
         shell: bash
         run: |
           cd $GITHUB_WORKSPACE/device_kernel/KernelSU/kernel
-          if ! grep -q "KSU_SUSFS_PRIORITY_UID_FILTER" Kconfig; then
-            sed -i '/menu "KernelSU - SUSFS"/a\
-\
-config KSU_SUSFS_PRIORITY_UID_FILTER\
-    bool "Enable SUSFS priority UID filter"\
-    depends on KSU_SUSFS\
-    default y\
-    help\
-      Hide configured application UIDs from getpriority, setpriority,\
-      ioprio_get, and ioprio_set for unprivileged app processes.' Kconfig
-            echo "[+] Added PRIORITY_UID_FILTER to BakaSU Kconfig"
-          else
+          if grep -q "KSU_SUSFS_PRIORITY_UID_FILTER" Kconfig; then
             echo "[+] PRIORITY_UID_FILTER already present"
+          else
+            echo "[+] Adding PRIORITY_UID_FILTER to BakaSU Kconfig"
+            # Use awk to insert after the SUSFS menu line
+            awk '/menu "KernelSU - SUSFS"/ {print; print ""; print "config KSU_SUSFS_PRIORITY_UID_FILTER"; print "    bool \"Enable SUSFS priority UID filter\""; print "    depends on KSU_SUSFS"; print "    default y"; print "    help"; print "      Hide configured application UIDs from getpriority, setpriority,"; print "      ioprio_get, and ioprio_set for unprivileged app processes."; next} 1' Kconfig > Kconfig.new && mv Kconfig.new Kconfig
           fi
 
       # The kernel tree has 54 symlinks pointing into ../vendor/ (Oppo AOSP layout:
