@@ -3,6 +3,12 @@ name: Build Oppo F11 (CPH1911) (BakaSU + SUSFS + NoMount + Re:Kernel + Droidspac
 on:
   workflow_call:
   workflow_dispatch:
+    inputs:
+      kernel_branch:
+        description: "Kernel branch to build (bakasu = stable, bakasu-test = experiments)"
+        required: false
+        default: "bakasu"
+        type: string
 
 env:
   # Device env
@@ -13,7 +19,9 @@ env:
   EXTRA_CMDS : ""
 
   KERNEL_SOURCE : "https://github.com/UnknownAMH/Oppo-f11-kernal.git"
-  KERNEL_BRANCH : "bakasu"
+  # Overridable from "Run workflow" -> kernel_branch input; defaults to the
+  # stable branch. Use bakasu-test for experimental SUSFS/hook work.
+  KERNEL_BRANCH : ${{ github.event.inputs.kernel_branch || 'bakasu' }}
 
   # clang r383902 (the exact toolchain the verified local build used)
   CLANG_SOURCE : "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/3857008389202edac32d57008bb8c99d2c957f9d/clang-r383902.tar.gz"
