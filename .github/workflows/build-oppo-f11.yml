@@ -122,41 +122,14 @@ jobs:
       - name: ⚙️ Get necessary tools
         uses: ./.github/workflows/build-ready
 
-      - name: 🔧 Patch PRIORITY_UID_FILTER into baked-in BakaSU (kernel 4.14 compat)
+      - name: 🔄 Switch BakaSU to sync-up branch (for PRIORITY_UID_FILTER + latest SUSFS)
         if: env.KERNELSU_AUTO_FORK == 'bakasu' && env.SUSFS_ENABLE == 'true'
         shell: bash
         run: |
-          cd $GITHUB_WORKSPACE/device_kernel
-
-          # The kernel has BakaSU baked in at ./KernelSU/kernel (symlink from drivers/kernelsu)
-          KCONFIG="KernelSU/kernel/Kconfig"
-          [ -f "$KCONFIG" ] || KCONFIG="drivers/kernelsu/kernel/Kconfig"
-          [ -f "$KCONFIG" ] || { echo "[-] BakaSU Kconfig not found"; exit 1; }
-
-          # Check if PRIORITY_UID_FILTER already exists
-          if grep -q "KSU_SUSFS_PRIORITY_UID_FILTER" "$KCONFIG"; then
-            echo "[+] PRIORITY_UID_FILTER already present in $KCONFIG"
-          else
-            echo "[+] Adding PRIORITY_UID_FILTER to $KCONFIG"
-            # Insert after the SUSFS menu start, before the first feature
-            sed -i '/menu "KernelSU - SUSFS"/a\
-\
-config KSU_SUSFS_PRIORITY_UID_FILTER\
-    bool "Enable SUSFS priority UID filter"\
-    depends on KSU_SUSFS\
-    default y\
-    help\
-      Hide configured application UIDs from getpriority, setpriority,\
-      ioprio_get, and ioprio_set for unprivileged app processes.' "$KCONFIG"
-            echo "[+] PRIORITY_UID_FILTER added"
-          fi
-
-          # Also ensure it's in defconfig (belt-and-suspenders)
-          DEFCONFIG="arch/${{ env.KERNEL_ARCH }}/configs/${{ env.DEFCONFIG_NAME }}"
-          if ! grep -q "CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER" "$DEFCONFIG"; then
-            echo "CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER=y" >> "$DEFCONFIG"
-            echo "[+] Added to defconfig"
-          fi
+          cd $GITHUB_WORKSPACE/device_kernel/KernelSU
+          git fetch origin sync-up:sync-up
+          git checkout sync-up
+          echo "[+] BakaSU switched to sync-up branch"
 
       # The kernel tree has 54 symlinks pointing into ../vendor/ (Oppo AOSP layout:
       # kernel + vendor sit side by side). CI only has the kernel repo, so provide
