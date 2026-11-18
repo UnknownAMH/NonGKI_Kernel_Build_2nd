@@ -122,14 +122,25 @@ jobs:
       - name: ⚙️ Get necessary tools
         uses: ./.github/workflows/build-ready
 
-      - name: 🔄 Switch BakaSU to sync-up branch (for PRIORITY_UID_FILTER + latest SUSFS)
+      - name: 🔧 Patch PRIORITY_UID_FILTER into BakaSU Kconfig (4.14 compat)
         if: env.KERNELSU_AUTO_FORK == 'bakasu' && env.SUSFS_ENABLE == 'true'
         shell: bash
         run: |
-          cd $GITHUB_WORKSPACE/device_kernel/KernelSU
-          git fetch origin sync-up:sync-up
-          git checkout sync-up
-          echo "[+] BakaSU switched to sync-up branch"
+          cd $GITHUB_WORKSPACE/device_kernel/KernelSU/kernel
+          if ! grep -q "KSU_SUSFS_PRIORITY_UID_FILTER" Kconfig; then
+            sed -i '/menu "KernelSU - SUSFS"/a\
+\
+config KSU_SUSFS_PRIORITY_UID_FILTER\
+    bool "Enable SUSFS priority UID filter"\
+    depends on KSU_SUSFS\
+    default y\
+    help\
+      Hide configured application UIDs from getpriority, setpriority,\
+      ioprio_get, and ioprio_set for unprivileged app processes.' Kconfig
+            echo "[+] Added PRIORITY_UID_FILTER to BakaSU Kconfig"
+          else
+            echo "[+] PRIORITY_UID_FILTER already present"
+          fi
 
       # The kernel tree has 54 symlinks pointing into ../vendor/ (Oppo AOSP layout:
       # kernel + vendor sit side by side). CI only has the kernel repo, so provide
