@@ -137,6 +137,38 @@ jobs:
             || { echo '[-] oppo_secure_common sed failed!'; exit 1; }
           echo "[+] vendor/ in place — symlink targets resolved."
 
+      # Visible replacement for the gated patch steps: prove the root stack is
+      # already inside the branch instead of leaving six unexplained "skipped".
+      - name: 🔎 Root stack pre-check (already baked into the bakasu branch)
+        shell: bash
+        run: |
+          cd $GITHUB_WORKSPACE/device_kernel
+          fail=0
+          ok(){ echo "[+] $*"; }
+          bad(){ echo "[-] $*"; fail=1; }
+          echo "[i] KERNEL_PREPATCHED=true -> the patch steps below are skipped ON PURPOSE."
+          echo "    SUSFS + inline hooks + Re:Kernel + Droidspaces + NoMount are committed in this branch."
+
+          [ -f fs/susfs.c ] && [ -f include/linux/susfs_def.h ] && ok "SUSFS 2.4 source (fs/susfs.c, susfs_def.h)" || bad "SUSFS source missing"
+          [ -f KernelSU/kernel/Kconfig ] && ok "KernelSU (BakaSU) source at ./KernelSU" || bad "KernelSU/ source missing (clone step failed)"
+          [ -d drivers/net/rekernel ] && ok "Re:Kernel driver present" || bad "Re:Kernel missing"
+          [ -f arch/arm64/configs/droidspaces.config ] && ok "Droidspaces config fragment present" || bad "Droidspaces config missing"
+          [ -f NoMount/kernel/src/nomount.c ] && ok "NoMount source present" || bad "NoMount source missing"
+
+          for pair in "fs/namespace.c" "fs/notify/fdinfo.c" "fs/proc/task_mmu.c"; do
+            n=$(grep -c 'CONFIG_KSU_SUSFS' "$pair" || true)
+            [ "$n" -gt 0 ] && ok "SUSFS hooks in $pair ($n)" || bad "no SUSFS hooks in $pair"
+          done
+
+          echo "--- root-related defconfig lines:"
+          grep -E '^(CONFIG_KSU=|CONFIG_KSU_SUSFS[A-Z_]*=|CONFIG_REKERNEL=|CONFIG_NOMOUNT=|CONFIG_THREAD_INFO_IN_TASK=)' \
+            arch/arm64/configs/oppo6771_defconfig || bad "no KSU/SUSFS lines in defconfig"
+          count=$(grep -cE '^(CONFIG_KSU=|CONFIG_KSU_SUSFS[A-Z_]*=y|CONFIG_REKERNEL=|CONFIG_NOMOUNT=)' arch/arm64/configs/oppo6771_defconfig || true)
+          ok "$count root-related config lines in oppo6771_defconfig"
+
+          [ "$fail" -eq 0 ] || { echo '[-] root stack incomplete in this branch!'; exit 1; }
+          echo '[+] root stack verified before the build (KSU + SUSFS + Re:Kernel + Droidspaces + NoMount).'
+
       - name: 🪝 Patch Kernel of SUSFS
         if: env.KERNEL_PREPATCHED != 'true'
         uses: ./.github/workflows/patch-susfs
