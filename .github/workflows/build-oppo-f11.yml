@@ -52,8 +52,14 @@ env:
   # Other env
   PYTHON_VERSION: "3"
 
-  PACK_METHOD: "AnyKernel3" # repo already ships its own customized AnyKernel3/
-  PACK_KMODULES: "false"
+  PACK_METHOD: "AnyKernel3" # repo ships the customized Helicopterr AK3 template
+  PACK_KMODULES: "true" # 6 vendor .ko (wlan/wmt/bt/gps/fm) built from the vendor tree below
+
+  # The bakasu branch of KERNEL_SOURCE already has the full patch chain baked in
+  # (BakaSU + SUSFS 2.4 + inline hooks + Re:Kernel + Droidspaces + NoMount).
+  # Running clean_hook/patch steps on a pre-patched tree would strip the hooks,
+  # so all of them are skipped in build-oppo-f11.yml when this is "true".
+  KERNEL_PREPATCHED: "true"
 
   KERNELSU_METHOD: "manual" # in-source integration, no kpimg
 
@@ -132,20 +138,24 @@ jobs:
           echo "[+] vendor/ in place — symlink targets resolved."
 
       - name: 🪝 Patch Kernel of SUSFS
+        if: env.KERNEL_PREPATCHED != 'true'
         uses: ./.github/workflows/patch-susfs
 
       - name: 🩹 Oppo F11 SUSFS 2.4 hand-merge (namespace/fdinfo/task_mmu)
+        if: env.KERNEL_PREPATCHED != 'true'
         run: |
           cd $GITHUB_WORKSPACE/device_kernel
           patch -p1 < /tmp/Patches/oppo_f11/susfs_24_fix.patch || { echo '[-] Oppo F11 susfs fix patch failed!'; exit 1; }
           echo '[+] Oppo F11 susfs fix patch applied.'
 
       - name: 🔗 Patch for inline hook
+        if: env.KERNEL_PREPATCHED != 'true'
         uses: ./.github/workflows/patch-no-kprobe
 
       # Re:Kernel with cgroup-v1 adaptation (Oppo 4.14 has no cgroup v2 freezer;
       # a v2 task_struct backport would break prebuilt module CRCs under MODVERSIONS)
       - name: 🧰 Patch Re:Kernel (Oppo F11 cgroup-v1 adapted)
+        if: env.KERNEL_PREPATCHED != 'true'
         run: |
           cd $GITHUB_WORKSPACE/device_kernel
           cp /tmp/Patches/Rekernel/rekernel_patches.sh ./
@@ -159,13 +169,54 @@ jobs:
           echo '[+] Re:Kernel patched (cgroup v1 adaptation).'
 
       - name: 💿 Patch Kernel of Droidspaces
+        if: env.KERNEL_PREPATCHED != 'true'
         uses: ./.github/workflows/patch-droidspaces
 
       - name: 🛡️ Patch Kernel of NoMount
+        if: env.KERNEL_PREPATCHED != 'true'
         uses: ./.github/workflows/patch-nomount
 
       - name: 🚀 Build Process
         uses: ./.github/workflows/build-process
+
+      - name: 🔍 Build output sanity check (KSU/SUSFS really in the kernel?)
+        run: |
+          cd $GITHUB_WORKSPACE/device_kernel
+          echo "===== out/.config ====="
+          grep -E 'CONFIG_KSU=|CONFIG_KSU_SUSFS=|CONFIG_REKERNEL=|CONFIG_NOMOUNT=|CONFIG_THREAD_INFO_IN_TASK=' out/.config || { echo '[-] KSU/SUSFS configs missing from out/.config!'; exit 1; }
+          echo "===== image ====="
+          ls -l out/arch/arm64/boot/Image.gz-dtb
+          md5sum out/arch/arm64/boot/Image.gz-dtb
+          echo "===== vmlinux strings ====="
+          KSU_HITS=$(strings out/vmlinux | grep -cE 'ksud|KernelSU|susfs' || true)
+          echo "KSU/SUSFS string hits: $KSU_HITS"
+          [ "$KSU_HITS" -gt 0 ] || { echo '[-] vmlinux contains no KSU/SUSFS strings — patch chain did not take effect!'; exit 1; }
+          echo '[+] Kernel verifiably contains KSU/SUSFS.'
+
+      - name: 📦 Build Oppo F11 vendor modules (wlan/wmt/bt/gps/fm)
+        run: |
+          cd $GITHUB_WORKSPACE/device_kernel
+          export CONFIG_MTK_PLATFORM=mt6771
+          export TARGET_BUILD_VARIANT=user
+          export AUTOCONF_H=$PWD/out/include/generated/autoconf.h
+          MOD_SRC="$GITHUB_WORKSPACE/vendor_repo/source/vendor/mediatek/kernel_modules"
+          OBJCOPY=$(dirname "$(command -v clang)")/llvm-objcopy
+          mkdir -p out/vendor-modules
+          for pair in \
+            "wmt_drv.ko connectivity/common" \
+            "wmt_chrdev_wifi.ko connectivity/wlan/adaptor" \
+            "wlan_drv_gen3.ko connectivity/wlan/core/gen3" \
+            "bt_drv.ko connectivity/bt/mt66xx/legacy" \
+            "gps_drv.ko connectivity/gps" \
+            "fmradio_drv.ko connectivity/fmradio"; do
+            set -- $pair
+            echo "=== building $1"
+            make O=out ARCH=arm64 CC="ccache clang" CLANG_TRIPLE=aarch64-linux-gnu- \
+              M="$MOD_SRC/$2" modules || { echo "[-] module $1 build failed!"; exit 1; }
+            "$OBJCOPY" --strip-debug "$MOD_SRC/$2/$1" "out/vendor-modules/$1"
+          done
+          ls -l out/vendor-modules/
+          echo '[+] Vendor modules built.'
 
       - name: 🔩 Pack Process
         uses: ./.github/workflows/pack-process
