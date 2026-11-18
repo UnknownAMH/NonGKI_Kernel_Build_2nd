@@ -194,14 +194,38 @@ jobs:
           echo '[+] Kernel verifiably contains KSU/SUSFS.'
 
       - name: 📦 Build Oppo F11 vendor modules (wlan/wmt/bt/gps/fm)
+        shell: bash
         run: |
+          set -o pipefail
           cd $GITHUB_WORKSPACE/device_kernel
+
+          # The kernel build step exports clang into PATH only inside its own run
+          # block, so a separate step has NO clang in PATH -> "ccache clang" fails.
+          # Add the toolchain bin dir explicitly (same one build-process uses).
+          export PATH="$GITHUB_WORKSPACE/clang-custom/bin:$PATH"
+          command -v clang >/dev/null || { echo '[-] clang not found in PATH'; ls "$GITHUB_WORKSPACE/clang-custom/bin" 2>/dev/null | head -20; exit 1; }
+          echo "[+] clang: $(command -v clang) -> $(clang --version | head -1)"
+          OBJCOPY=$(command -v llvm-objcopy || true)
+          [ -x "$OBJCOPY" ] || OBJCOPY="$GITHUB_WORKSPACE/clang-custom/bin/llvm-objcopy"
+          [ -x "$OBJCOPY" ] || { echo '[-] llvm-objcopy not found'; exit 1; }
+          echo "[+] llvm-objcopy: $OBJCOPY"
+
+          # CROSS_COMPILE normally comes from GITHUB_ENV (found_gcc.sh); derive it
+          # from gcc-64/bin if that ever stops happening.
+          if [ -z "${CROSS_COMPILE:-}" ]; then
+            _gcc=$(ls "$GITHUB_WORKSPACE"/gcc-64/bin/*-gcc 2>/dev/null | head -1)
+            CROSS_COMPILE="${_gcc%-gcc}-"     # .../bin/aarch64-linux-android-
+            echo "[!] CROSS_COMPILE was empty, derived: $CROSS_COMPILE"
+          fi
+          echo "[+] CROSS_COMPILE: $CROSS_COMPILE"
+
           export CONFIG_MTK_PLATFORM=mt6771
           export TARGET_BUILD_VARIANT=user
           export AUTOCONF_H=$PWD/out/include/generated/autoconf.h
           MOD_SRC="$GITHUB_WORKSPACE/vendor_repo/source/vendor/mediatek/kernel_modules"
-          OBJCOPY=$(dirname "$(command -v clang)")/llvm-objcopy
+          [ -d "$MOD_SRC" ] || { echo "[-] module source tree missing: $MOD_SRC"; exit 1; }
           mkdir -p out/vendor-modules
+
           for pair in \
             "wmt_drv.ko connectivity/common" \
             "wmt_chrdev_wifi.ko connectivity/wlan/adaptor" \
@@ -210,12 +234,22 @@ jobs:
             "gps_drv.ko connectivity/gps" \
             "fmradio_drv.ko connectivity/fmradio"; do
             set -- $pair
-            echo "=== building $1"
-            make O=out ARCH=arm64 CC="ccache clang" CLANG_TRIPLE=aarch64-linux-gnu- \
-              M="$MOD_SRC/$2" modules || { echo "[-] module $1 build failed!"; exit 1; }
+            echo "=== building $1 ($2)"
+            LOG=/tmp/mod-$1.log
+            if ! make -j$(nproc) O=out ARCH=arm64 CC="ccache clang" \
+                   CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE="$CROSS_COMPILE" \
+                   M="$MOD_SRC/$2" modules 2>&1 | tee "$LOG"; then
+              echo "[-] module $1 build failed -- last 60 log lines:"
+              tail -60 "$LOG"
+              exit 1
+            fi
+            [ -f "$MOD_SRC/$2/$1" ] || { echo "[-] $1 not produced"; exit 1; }
             "$OBJCOPY" --strip-debug "$MOD_SRC/$2/$1" "out/vendor-modules/$1"
           done
+
           ls -l out/vendor-modules/
+          echo "[+] vermagic of each packed module:"
+          for ko in out/vendor-modules/*.ko; do echo "$(basename $ko): $(strings -a $ko | grep -m1 vermagic=)"; done
           echo '[+] Vendor modules built.'
 
       - name: 🔩 Pack Process
