@@ -122,6 +122,15 @@ jobs:
       - name: ⚙️ Get necessary tools
         uses: ./.github/workflows/build-ready
 
+      - name: 🔄 Switch BakaSU to sync-up branch (for PRIORITY_UID_FILTER + latest SUSFS)
+        if: env.KERNELSU_AUTO_FORK == 'bakasu' && env.SUSFS_ENABLE == 'true'
+        shell: bash
+        run: |
+          cd $GITHUB_WORKSPACE/device_kernel/KernelSU
+          git fetch origin sync-up:sync-up
+          git checkout sync-up
+          echo "[+] BakaSU switched to sync-up branch"
+
       # The kernel tree has 54 symlinks pointing into ../vendor/ (Oppo AOSP layout:
       # kernel + vendor sit side by side). CI only has the kernel repo, so provide
       # the genuine Oppo vendor source (all 54 targets verified inside oplus/ and
