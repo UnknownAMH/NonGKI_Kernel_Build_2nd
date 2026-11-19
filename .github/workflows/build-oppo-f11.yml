@@ -108,9 +108,9 @@ env:
 
 jobs:
   build-kernel:
-    name: Oppo F11 (CPH1911) (Kernel 4.14)
+    name: Oppo F11 (CPH11) (Kernel 4.14)
     runs-on: ubuntu-24.04
-    container: ubuntu:focal
+    container: ubuntu:22.04
     env:
       CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
       CCACHE_NOHASHDIR: "true"
