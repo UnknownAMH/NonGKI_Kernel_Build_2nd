@@ -111,7 +111,6 @@ runs:
           echo "[+] Cleaned hook."
 
       - name: Set KernelSU
-        if: env.KERNEL_PREPATCHED != 'true'
         shell: bash
         run: |
           cd $GITHUB_WORKSPACE/device_kernel
