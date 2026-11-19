@@ -122,18 +122,29 @@ jobs:
       - name: ⚙️ Get necessary tools
         uses: ./.github/workflows/build-ready
 
-      - name: 🔧 Patch PRIORITY_UID_FILTER into BakaSU Kconfig (4.14 compat)
+      - name: 🔧 Patch PRIORITY_UID_FILTER into BakaSU Kconfig (10th SUSFS feature)
         if: env.KERNELSU_AUTO_FORK == 'bakasu' && env.SUSFS_ENABLE == 'true'
         shell: bash
         run: |
-          cd $GITHUB_WORKSPACE/device_kernel/KernelSU/kernel
-          if grep -q "KSU_SUSFS_PRIORITY_UID_FILTER" Kconfig; then
-            echo "[+] PRIORITY_UID_FILTER already present"
+          cd $GITHUB_WORKSPACE/device_kernel
+          # Single source of truth lives in the kernel branch. Fall back to an
+          # inline insert for older branches that predate the script. Without
+          # the option kconfig drops CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER
+          # silently and the feature is compiled out with no error.
+          if [ -f patch_bakasu_kconfig.sh ]; then
+            bash ./patch_bakasu_kconfig.sh
           else
-            echo "[+] Adding PRIORITY_UID_FILTER to BakaSU Kconfig"
-            # Use awk to insert after the SUSFS menu line
-            awk '/menu "KernelSU - SUSFS"/ {print; print ""; print "config KSU_SUSFS_PRIORITY_UID_FILTER"; print "    bool \"Enable SUSFS priority UID filter\""; print "    depends on KSU_SUSFS"; print "    default y"; print "    help"; print "      Hide configured application UIDs from getpriority, setpriority,"; print "      ioprio_get, and ioprio_set for unprivileged app processes."; next} 1' Kconfig > Kconfig.new && mv Kconfig.new Kconfig
+            echo "[!] script missing in this branch -- inline fallback"
+            K=KernelSU/kernel/Kconfig
+            if grep -q 'config KSU_SUSFS_PRIORITY_UID_FILTER' "$K"; then
+              echo "[+] already present"
+            else
+              awk '/^menu "KernelSU - SUSFS"/ {m=1} m && /^endmenu/ && !d {print ""; print "config KSU_SUSFS_PRIORITY_UID_FILTER"; print "    bool \"Enable SUSFS priority UID filter\""; print "    depends on KSU_SUSFS"; print "    default y"; print "    help"; print "        Hide configured application UIDs from getpriority, setpriority,"; print "        ioprio_get, and ioprio_set for unprivileged app processes."; print ""; d=1; m=0} {print}' "$K" > "$K.new" && mv "$K.new" "$K"
+            fi
           fi
+          grep -q 'config KSU_SUSFS_PRIORITY_UID_FILTER' KernelSU/kernel/Kconfig \
+            && echo "[+] Kconfig option present" \
+            || { echo '[-] Kconfig option missing!'; exit 1; }
 
       # The kernel tree has 54 symlinks pointing into ../vendor/ (Oppo AOSP layout:
       # kernel + vendor sit side by side). CI only has the kernel repo, so provide
@@ -236,7 +247,8 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE/device_kernel
           echo "===== out/.config ====="
-          grep -E 'CONFIG_KSU=|CONFIG_KSU_SUSFS=|CONFIG_REKERNEL=|CONFIG_NOMOUNT=|CONFIG_THREAD_INFO_IN_TASK=' out/.config || { echo '[-] KSU/SUSFS configs missing from out/.config!'; exit 1; }
+          grep -E 'CONFIG_KSU=|CONFIG_KSU_SUSFS=|CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER=|CONFIG_REKERNEL=|CONFIG_NOMOUNT=|CONFIG_THREAD_INFO_IN_TASK=' out/.config || { echo '[-] KSU/SUSFS configs missing from out/.config!'; exit 1; }
+          grep -q '^CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER=y' out/.config || { echo '[-] 10th SUSFS feature (PRIORITY_UID_FILTER) was dropped by kconfig - BakaSU Kconfig lacks the option!'; exit 1; }
           echo "===== image ====="
           ls -l out/arch/arm64/boot/Image.gz-dtb
           md5sum out/arch/arm64/boot/Image.gz-dtb
