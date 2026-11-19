@@ -5,13 +5,10 @@ on:
   workflow_dispatch:
     inputs:
       kernel_branch:
-        description: "Kernel branch to build (bakasu = stable/old Re-Kernel, bakasu-test = updated Re-Kernel v11.7 + hooks)"
+        description: "Kernel branch to build (bakasu = stable, bakasu-test = experiments)"
         required: false
-        default: "bakasu-test"
-        type: choice
-        options:
-          - "bakasu"
-          - "bakasu-test"
+        default: "bakasu"
+        type: string
 
 env:
   # Device env
@@ -24,7 +21,7 @@ env:
   KERNEL_SOURCE : "https://github.com/UnknownAMH/Oppo-f11-kernal.git"
   # Overridable from "Run workflow" -> kernel_branch input; defaults to the
   # stable branch. Use bakasu-test for experimental SUSFS/hook work.
-  KERNEL_BRANCH : ${{ github.event.inputs.kernel_branch || 'bakasu-test' }}
+  KERNEL_BRANCH : ${{ github.event.inputs.kernel_branch || 'bakasu' }}
 
   # clang r383902 (the exact toolchain the verified local build used)
   CLANG_SOURCE : "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/3857008389202edac32d57008bb8c99d2c957f9d/clang-r383902.tar.gz"
@@ -231,16 +228,21 @@ jobs:
         if: env.KERNEL_PREPATCHED != 'true'
         uses: ./.github/workflows/patch-no-kprobe
 
-      # Re:Kernel is pre-baked in kernel branch (drivers/net/rekernel/ + hooks in binder/signal).
-      # The old patch step (for monolithic rekernel.c) is disabled via KERNEL_PREPATCHED=true.
-      # New modular Re-Kernel (v11.7, Generic Netlink) builds from source in kernel branch.
-      - name: 🧰 Patch Re:Kernel (DISABLED - pre-baked in kernel branch)
-        if: false
+      # Re:Kernel with cgroup-v1 adaptation (Oppo 4.14 has no cgroup v2 freezer;
+      # a v2 task_struct backport would break prebuilt module CRCs under MODVERSIONS)
+      - name: 🧰 Patch Re:Kernel (Oppo F11 cgroup-v1 adapted)
+        if: env.KERNEL_PREPATCHED != 'true'
         run: |
-          echo "Re:Kernel patch disabled - driver is pre-baked in kernel branch"
-          echo "Old patch (rekernel_patches.sh + rekernel_extra.patch) targeted old monolithic rekernel.c"
-          echo "New driver: drivers/net/rekernel/{rekernel_main,netlink,binder,signal,netfilter}.c"
-          echo "CONFIG_REKERNEL=y is set in defconfig"
+          cd $GITHUB_WORKSPACE/device_kernel
+          cp /tmp/Patches/Rekernel/rekernel_patches.sh ./
+          bash rekernel_patches.sh
+          cp /tmp/Patches/Rekernel/rekernel_extra.patch ./
+          # drop the v2-only cgroup_task_frozen() call (freezer.h is already included by the patch)
+          sed -i 's/cgroup_task_frozen(task) || //' rekernel_extra.patch
+          grep -q 'return (cgroup_freezing(task));' rekernel_extra.patch || { echo '[-] frozen_task_group sed failed!'; exit 1; }
+          patch -p1 < rekernel_extra.patch || { echo '[-] Re:Kernel patch failed!'; exit 1; }
+          echo "CONFIG_REKERNEL=y" >> ./arch/${{ env.KERNEL_ARCH }}/configs/${{ env.DEFCONFIG_NAME }}
+          echo '[+] Re:Kernel patched (cgroup v1 adaptation).'
 
       - name: 💿 Patch Kernel of Droidspaces
         if: env.KERNEL_PREPATCHED != 'true'
