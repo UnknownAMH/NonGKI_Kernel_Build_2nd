@@ -233,14 +233,30 @@ runs:
 
 
           # Core
-          if [[ ${{ env.KERNELSU_AUTO_GET }} == "true" ]]; then
-            KERNELSU_AUTO
+          # A branch may ship KernelSU source directly (KernelSU/VENDORED.md).
+          # Then there is nothing to clone and the tree's Kconfig is authoritative.
+          if [[ "${{ env.KERNELSU_VENDORED }}" == "true" ]]; then
+            [ -f KernelSU/kernel/Kconfig ] || { echo '[-] KERNELSU_VENDORED=true but KernelSU/kernel/Kconfig is missing'; exit 1; }
+            echo "[+] KernelSU is vendored in the kernel tree - skipping clone"
+            echo "KERNELSU_NAME=KernelSU" >> $GITHUB_ENV
+            echo "KERNELSU_METHOD=${{ env.KERNELSU_METHOD }}" >> $GITHUB_ENV
 
           else
-            KERNELSU_MANUAL
+            # drop a vendored copy so 'git clone' has an empty target
+            if [ -f KernelSU/VENDORED.md ]; then
+              echo "[i] tree ships a vendored KernelSU, removing it for this run (KERNELSU_VENDORED != true)"
+              rm -rf KernelSU
+            fi
 
+            if [[ ${{ env.KERNELSU_AUTO_GET }} == "true" ]]; then
+              KERNELSU_AUTO
+
+            else
+              KERNELSU_MANUAL
+
+            fi
+            echo "KERNELSU_METHOD=${{ env.KERNELSU_METHOD }}" >> $GITHUB_ENV
           fi
-          echo "KERNELSU_METHOD=${{ env.KERNELSU_METHOD }}" >> $GITHUB_ENV
 
       - name: KPM Function Support
         if: env.KPM_ENABLE == 'true'
