@@ -41,6 +41,10 @@ runs:
         run: |
           . /etc/os-release
 
+          echo "[DEBUG] ID=$ID"
+          echo "[DEBUG] VERSION_ID=$VERSION_ID"
+          echo "[DEBUG] PRETTY_NAME=$PRETTY_NAME"
+
           if [ "$ID" = "ubuntu" ]; then
               if [ "$VERSION_ID" = "20.04" ]; then
                   echo "SYSTEM_VERSION=oldest" >> $GITHUB_ENV
@@ -51,13 +55,13 @@ runs:
               elif [ "$VERSION_ID" = "26.04" ]; then
                   echo "SYSTEM_VERSION=latest" >> $GITHUB_ENV
               else
-                  echo "[-] Not supported ubuntu version: $VERSION_ID."
+                  echo "[-] Not supported ubuntu version: '$VERSION_ID'."
                   false
               fi
           elif [ "$ID" = "arch" ]; then
               echo "SYSTEM_VERSION=arch" >> $GITHUB_ENV
           else
-              echo "[-] Not supported system os: $PRETTY_NAME."
+              echo "[-] Not supported system os: '$PRETTY_NAME'."
               false
           fi
 
