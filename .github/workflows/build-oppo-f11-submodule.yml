@@ -12,6 +12,21 @@ on:
         options:
           - "bakasu"
           - "bakasu-test"
+      kernelsu_variant:
+        description: "KernelSU variant to use (bakasu = recommended for SUSFS, rsuntk = official, sukisu = SukiSU, next = KSU-Next)"
+        required: false
+        default: "bakasu"
+        type: choice
+        options:
+          - "bakasu"
+          - "rsuntk"
+          - "sukisu"
+          - "next"
+      enable_kpatch:
+        description: "Enable Kernel Patch Manager (KPM) / kpatch support"
+        required: false
+        default: false
+        type: boolean
 
 env:
   # Device env
@@ -52,7 +67,7 @@ env:
 
   KERNELSU_VENDORED : "true"
   KERNELSU_AUTO_GET : "false"
-  KERNELSU_AUTO_FORK : "bakasu" # keeps the SUSFS config handling + Kconfig patch step
+  KERNELSU_AUTO_FORK : ${{ github.event.inputs.kernelsu_variant || 'bakasu' }} # keeps the SUSFS config handling + Kconfig patch step
 
   SUSFS_ENABLE : true
   SUSFS_FIXED : false
@@ -93,8 +108,8 @@ env:
 
   HOOK_METHOD: "syscall"
 
-  KPM_ENABLE: "false"
-  KPM_INLINE: "false"
+  KPM_ENABLE: ${{ github.event.inputs.enable_kpatch && 'true' || 'false' }}
+  KPM_INLINE: ${{ github.event.inputs.enable_kpatch && 'true' || 'false' }}
   KPM_KPATCH_NEXT: "false"
   KPM_PATCH_SOURCE: ""
 
