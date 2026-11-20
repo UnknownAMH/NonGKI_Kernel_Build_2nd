@@ -198,7 +198,8 @@ jobs:
 
           [ -f fs/susfs.c ] && [ -f include/linux/susfs_def.h ] && ok "SUSFS 2.4 source (fs/susfs.c, susfs_def.h)" || bad "SUSFS source missing"
           [ -f KernelSU/kernel/Kconfig ] && ok "KernelSU (BakaSU) source at ./KernelSU" || bad "KernelSU/ source missing (clone step failed)"
-          [ -d drivers/net/rekernel ] && ok "Re:Kernel driver present" || bad "Re:Kernel missing"
+          [ -d drivers/rekernel ] && ok "Re:Kernel driver present (drivers/rekernel)" || \
+          [ -d drivers/net/rekernel ] && ok "Re:Kernel driver present (drivers/net/rekernel)" || bad "Re:Kernel missing"
           [ -f arch/arm64/configs/droidspaces.config ] && ok "Droidspaces config fragment present" || bad "Droidspaces config missing"
           [ -f NoMount/kernel/src/nomount.c ] && ok "NoMount source present" || bad "NoMount source missing"
 
