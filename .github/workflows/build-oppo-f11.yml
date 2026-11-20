@@ -95,8 +95,8 @@ env:
   KPM_KPATCH_NEXT: "false"
   KPM_PATCH_SOURCE: ""
 
-  BASEBAND_GUARD_ENABLE: "false"
-  BASEBAND_GUARD_BOOT: "false"
+  BASEBAND_GUARD_ENABLE: "true"
+  BASEBAND_GUARD_BOOT: "true"
 
   GENERATE_DTB: "false"
   GENERATE_CHIP: "mediatek-mt6771"
@@ -207,6 +207,10 @@ jobs:
 
           [ "$fail" -eq 0 ] || { echo '[-] root stack incomplete in this branch!'; exit 1; }
           echo '[+] root stack verified before the build (KSU + SUSFS + Re:Kernel + Droidspaces + NoMount).'
+
+      - name: 🛡️ Patch Baseband Guard
+        if: env.BASEBAND_GUARD_ENABLE == 'true'
+        uses: ./.github/workflows/patch-baseband-guard
 
       - name: 🚀 Build Process
         uses: ./.github/workflows/build-process
