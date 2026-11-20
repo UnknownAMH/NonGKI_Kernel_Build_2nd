@@ -9,21 +9,6 @@ on:
         required: false
         default: "bakasu"
         type: string
-      kernelsu_variant:
-        description: "KernelSU variant to use (bakasu = recommended for SUSFS, rsuntk = official, sukisu = SukiSU, next = KSU-Next)"
-        required: false
-        default: "bakasu"
-        type: choice
-        options:
-          - "bakasu"
-          - "rsuntk"
-          - "sukisu"
-          - "next"
-      enable_kpatch:
-        description: "Enable Kernel Patch Manager (KPM) / kpatch support"
-        required: false
-        default: false
-        type: boolean
 
 env:
   # Device env
@@ -105,11 +90,7 @@ env:
 
   HOOK_METHOD: "syscall"
 
-  KPM_ENABLE: ${{ github.event.inputs.enable_kpatch && 'true' || 'false' }}
-  KPM_INLINE: ${{ github.event.inputs.enable_kpatch && 'true' || 'false' }}
-  KPM_KPATCH_NEXT: "false"
-  KPM_PATCH_SOURCE: ""
-
+  
   BASEBAND_GUARD_ENABLE: "true"
   BASEBAND_GUARD_BOOT: "true"
 
