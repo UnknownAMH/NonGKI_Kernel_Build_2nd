@@ -98,8 +98,8 @@ env:
   KPM_KPATCH_NEXT: "false"
   KPM_PATCH_SOURCE: ""
 
-  BASEBAND_GUARD_ENABLE: "false"
-  BASEBAND_GUARD_BOOT: "false"
+  BASEBAND_GUARD_ENABLE: "true"
+  BASEBAND_GUARD_BOOT: "true"
 
   GENERATE_DTB: "false"
   GENERATE_CHIP: "mediatek-mt6771"
