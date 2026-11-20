@@ -217,45 +217,6 @@ jobs:
           [ "$fail" -eq 0 ] || { echo '[-] root stack incomplete in this branch!'; exit 1; }
           echo '[+] root stack verified before the build (KSU + SUSFS + Re:Kernel + Droidspaces + NoMount).'
 
-      - name: 🪝 Patch Kernel of SUSFS
-        if: env.KERNEL_PREPATCHED != 'true'
-        uses: ./.github/workflows/patch-susfs
-
-      - name: 🩹 Oppo F11 SUSFS 2.4 hand-merge (namespace/fdinfo/task_mmu)
-        if: env.KERNEL_PREPATCHED != 'true'
-        run: |
-          cd $GITHUB_WORKSPACE/device_kernel
-          patch -p1 < /tmp/Patches/oppo_f11/susfs_24_fix.patch || { echo '[-] Oppo F11 susfs fix patch failed!'; exit 1; }
-          echo '[+] Oppo F11 susfs fix patch applied.'
-
-      - name: 🔗 Patch for inline hook
-        if: env.KERNEL_PREPATCHED != 'true'
-        uses: ./.github/workflows/patch-no-kprobe
-
-      # Re:Kernel with cgroup-v1 adaptation (Oppo 4.14 has no cgroup v2 freezer;
-      # a v2 task_struct backport would break prebuilt module CRCs under MODVERSIONS)
-      - name: 🧰 Patch Re:Kernel (Oppo F11 cgroup-v1 adapted)
-        if: env.KERNEL_PREPATCHED != 'true'
-        run: |
-          cd $GITHUB_WORKSPACE/device_kernel
-          cp /tmp/Patches/Rekernel/rekernel_patches.sh ./
-          bash rekernel_patches.sh
-          cp /tmp/Patches/Rekernel/rekernel_extra.patch ./
-          # drop the v2-only cgroup_task_frozen() call (freezer.h is already included by the patch)
-          sed -i 's/cgroup_task_frozen(task) || //' rekernel_extra.patch
-          grep -q 'return (cgroup_freezing(task));' rekernel_extra.patch || { echo '[-] frozen_task_group sed failed!'; exit 1; }
-          patch -p1 < rekernel_extra.patch || { echo '[-] Re:Kernel patch failed!'; exit 1; }
-          echo "CONFIG_REKERNEL=y" >> ./arch/${{ env.KERNEL_ARCH }}/configs/${{ env.DEFCONFIG_NAME }}
-          echo '[+] Re:Kernel patched (cgroup v1 adaptation).'
-
-      - name: 💿 Patch Kernel of Droidspaces
-        if: env.KERNEL_PREPATCHED != 'true'
-        uses: ./.github/workflows/patch-droidspaces
-
-      - name: 🛡️ Patch Kernel of NoMount
-        if: env.KERNEL_PREPATCHED != 'true'
-        uses: ./.github/workflows/patch-nomount
-
       - name: 🚀 Build Process
         uses: ./.github/workflows/build-process
 

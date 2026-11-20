@@ -208,40 +208,6 @@ jobs:
           [ "$fail" -eq 0 ] || { echo '[-] root stack incomplete in this branch!'; exit 1; }
           echo '[+] root stack verified before the build (KSU + SUSFS + Re:Kernel + Droidspaces + NoMount).'
 
-      - name: 🪝 Patch Kernel of SUSFS
-        if: env.KERNEL_PREPATCHED != 'true'
-        uses: ./.github/workflows/patch-susfs
-
-      - name: 🩹 Oppo F11 SUSFS 2.4 hand-merge (namespace/fdinfo/task_mmu)
-        if: env.KERNEL_PREPATCHED != 'true'
-        run: |
-          cd $GITHUB_WORKSPACE/device_kernel
-          patch -p1 < /tmp/Patches/oppo_f11/susfs_24_fix.patch || { echo '[-] Oppo F11 susfs fix patch failed!'; exit 1; }
-          echo '[+] Oppo F11 susfs fix patch applied.'
-
-      - name: 🔗 Patch for inline hook
-        if: env.KERNEL_PREPATCHED != 'true'
-        uses: ./.github/workflows/patch-no-kprobe
-
-      # Re:Kernel is pre-baked in kernel branch (drivers/rekernel/ + hooks in binder/signal).
-      # The old patch step (for monolithic rekernel.c) is disabled via KERNEL_PREPATCHED=true.
-      # New modular Re-Kernel (v11.7, Generic Netlink) builds from source in kernel branch.
-      - name: 🧰 Patch Re:Kernel (DISABLED - pre-baked in kernel branch)
-        if: false
-        run: |
-          echo "Re:Kernel patch disabled - driver is pre-baked in kernel branch"
-          echo "Old patch (rekernel_patches.sh + rekernel_extra.patch) targeted old monolithic rekernel.c"
-          echo "New driver: drivers/rekernel/{rekernel_main,netlink,binder,signal,netfilter}.c"
-          echo "CONFIG_REKERNEL=y is set in defconfig"
-
-      - name: 💿 Patch Kernel of Droidspaces
-        if: env.KERNEL_PREPATCHED != 'true'
-        uses: ./.github/workflows/patch-droidspaces
-
-      - name: 🛡️ Patch Kernel of NoMount
-        if: env.KERNEL_PREPATCHED != 'true'
-        uses: ./.github/workflows/patch-nomount
-
       - name: 🚀 Build Process
         uses: ./.github/workflows/build-process
 
