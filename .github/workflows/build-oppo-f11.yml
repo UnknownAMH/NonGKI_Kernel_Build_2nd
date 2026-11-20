@@ -189,7 +189,8 @@ jobs:
 
           [ -f fs/susfs.c ] && [ -f include/linux/susfs_def.h ] && ok "SUSFS 2.4 source (fs/susfs.c, susfs_def.h)" || bad "SUSFS source missing"
           [ -f KernelSU/kernel/Kconfig ] && ok "KernelSU (BakaSU) source at ./KernelSU" || bad "KernelSU/ source missing (clone step failed)"
-          [ -d drivers/net/rekernel ] && ok "Re:Kernel driver present" || bad "Re:Kernel missing"
+          [ -d drivers/rekernel ] && ok "Re:Kernel driver present (drivers/rekernel)" || \
+          [ -d drivers/net/rekernel ] && ok "Re:Kernel driver present (drivers/net/rekernel)" || bad "Re:Kernel missing"
           [ -f arch/arm64/configs/droidspaces.config ] && ok "Droidspaces config fragment present" || bad "Droidspaces config missing"
           [ -f NoMount/kernel/src/nomount.c ] && ok "NoMount source present" || bad "NoMount source missing"
 
@@ -222,7 +223,7 @@ jobs:
         if: env.KERNEL_PREPATCHED != 'true'
         uses: ./.github/workflows/patch-no-kprobe
 
-      # Re:Kernel is pre-baked in kernel branch (drivers/net/rekernel/ + hooks in binder/signal).
+      # Re:Kernel is pre-baked in kernel branch (drivers/rekernel/ + hooks in binder/signal).
       # The old patch step (for monolithic rekernel.c) is disabled via KERNEL_PREPATCHED=true.
       # New modular Re-Kernel (v11.7, Generic Netlink) builds from source in kernel branch.
       - name: 🧰 Patch Re:Kernel (DISABLED - pre-baked in kernel branch)
@@ -230,7 +231,7 @@ jobs:
         run: |
           echo "Re:Kernel patch disabled - driver is pre-baked in kernel branch"
           echo "Old patch (rekernel_patches.sh + rekernel_extra.patch) targeted old monolithic rekernel.c"
-          echo "New driver: drivers/net/rekernel/{rekernel_main,netlink,binder,signal,netfilter}.c"
+          echo "New driver: drivers/rekernel/{rekernel_main,netlink,binder,signal,netfilter}.c"
           echo "CONFIG_REKERNEL=y is set in defconfig"
 
       - name: 💿 Patch Kernel of Droidspaces
