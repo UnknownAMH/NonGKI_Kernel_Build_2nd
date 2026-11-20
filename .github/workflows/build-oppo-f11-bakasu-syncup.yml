@@ -5,10 +5,13 @@ on:
   workflow_dispatch:
     inputs:
       kernel_branch:
-        description: "Kernel branch to build (bakasu = stable, bakasu-test = experiments)"
+        description: "Kernel branch to build (bakasu = stable/old Re-Kernel, bakasu-test = updated Re-Kernel v11.7 + hooks)"
         required: false
         default: "bakasu"
-        type: string
+        type: choice
+        options:
+          - "bakasu"
+          - "bakasu-test"
 
 env:
   # Device env
