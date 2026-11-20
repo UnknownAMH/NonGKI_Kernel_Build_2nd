@@ -7,7 +7,7 @@ on:
       kernel_branch:
         description: "Kernel branch to build (must have BakaSU source committed directly, no submodule)"
         required: false
-        default: "bakasu-test-no-submodule"
+        default: "bakasu"
         type: string
 
 env:
@@ -21,7 +21,7 @@ env:
   KERNEL_SOURCE : "https://github.com/UnknownAMH/Oppo-f11-kernal.git"
   # Overridable from "Run workflow" -> kernel_branch input; defaults to the
   # branch with BakaSU committed directly (no submodule).
-  KERNEL_BRANCH : ${{ github.event.inputs.kernel_branch || 'bakasu-test-no-submodule' }}
+  KERNEL_BRANCH : ${{ github.event.inputs.kernel_branch || 'bakasu' }}
 
   # Skip submodule init: BakaSU source is already committed in kernel tree
   SKIP_SUBMODULE_INIT : "true"
