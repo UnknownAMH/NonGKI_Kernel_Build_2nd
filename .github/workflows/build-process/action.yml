@@ -125,12 +125,9 @@ runs:
                 echo "[+] Pre-built SELinux done."
             fi
 
-            make -j$(nproc --all) \
-  CC="ccache clang" \
-  ${{ env.CUSTOM_CMDS }} \
-  ${{ env.EXTRA_CMDS }} \
-  EXTRA_CFLAGS="-Wno-unused-function" \
-  O=out ARCH="${{ env.KERNEL_ARCH }}"
+           make -j$(nproc --all) CC="ccache clang" O=out ARCH="${{ env.KERNEL_ARCH }}" \
+  CLANG_TRIPLE=aarch64-linux-gnu- EXTRA_CFLAGS="-Wno-unused-function"
+
           else
             echo "===================="
             echo "=Execuate GCC Build="
