@@ -94,7 +94,7 @@ env:
   HOOK_METHOD: "syscall"
 
   
-  BASEBAND_GUARD_ENABLE: "false" # vendored in security/baseband-guard/, no external patch
+  BASEBAND_GUARD_ENABLE: "true" # vendored in security/baseband-guard/, no external patch
   BASEBAND_GUARD_BOOT: "true"
 
   GENERATE_DTB: "false"
