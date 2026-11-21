@@ -10,10 +10,10 @@ runs:
 
           echo "::group::[+] Starting git clone kernel source code..."
           if [[ "${{ env.SKIP_SUBMODULE_INIT }}" == "true" ]]; then
-            git clone "${{ env.KERNEL_SOURCE }}" -b "${{ env.KERNEL_BRANCH }}" device_kernel --depth=1
+            git clone "${{ env.KERNEL_SOURCE }}" -b "${{ env.KERNEL_BRANCH }}" device_kernel
             echo "[+] Submodule initialization SKIPPED (SKIP_SUBMODULE_INIT=true)"
           else
-            git clone --recursive "${{ env.KERNEL_SOURCE }}" -b "${{ env.KERNEL_BRANCH }}" device_kernel --depth=1
+            git clone --recursive "${{ env.KERNEL_SOURCE }}" -b "${{ env.KERNEL_BRANCH }}" device_kernel
 
             if [[ -f "device_kernel/.gitmodules" ]]; then
               cd device_kernel
