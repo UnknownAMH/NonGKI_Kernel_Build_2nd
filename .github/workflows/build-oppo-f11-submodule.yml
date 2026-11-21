@@ -296,7 +296,7 @@ jobs:
             if [ -n "$EXTRA_SYMS" ]; then EXTRA_ARG="KBUILD_EXTRA_SYMBOLS=$EXTRA_SYMS"; fi
             echo "    extra symbols: $EXTRA_SYMS ($(wc -l < "$EXTRA_SYMS") exported)"
             if ! make -j$(nproc) O=out ARCH=arm64 CC="ccache clang" \
-                   CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE="$CROSS_COMPILE" \
+                   CLANG_TRIPLE=aarch64-linux-gnu CROSS_COMPILE="$CROSS_COMPILE" \
                    $EXTRA_ARG KBUILD_MODPOST_WARN=1 M="$MOD_SRC/$2" modules 2>&1 | tee "$LOG"; then
               echo "[-] module $1 build failed -- last 60 log lines:"
               tail -60 "$LOG"
