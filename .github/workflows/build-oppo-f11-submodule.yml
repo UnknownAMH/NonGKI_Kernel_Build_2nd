@@ -18,7 +18,7 @@ env:
   DEVICE_NAME : "oppo_f11"
   DEVICE_CODENAME : "CPH1911"
 
-  CUSTOM_CMDS : "CLANG_TRIPLE=aarch64-linux-gnu-"
+  CUSTOM_CMDS : "CLANG_TRIPLE=aarch64-linux-gnu"
   EXTRA_CMDS : ""
 
   KERNEL_SOURCE : "https://github.com/UnknownAMH/Oppo-f11-kernal.git"
