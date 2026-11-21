@@ -15,6 +15,12 @@ runs:
           else
             git clone --recursive "${{ env.KERNEL_SOURCE }}" -b "${{ env.KERNEL_BRANCH }}" device_kernel
 
+            # Fetch latest commit to ensure we have the latest code
+            cd device_kernel
+            git fetch origin "${{ env.KERNEL_BRANCH }}"
+            git reset --hard origin/"${{ env.KERNEL_BRANCH }}"
+            cd ..
+
             if [[ -f "device_kernel/.gitmodules" ]]; then
               cd device_kernel
               git submodule init
