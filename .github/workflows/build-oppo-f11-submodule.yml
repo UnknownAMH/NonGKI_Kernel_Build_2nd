@@ -172,6 +172,10 @@ jobs:
           grep -q 'linux/uaccess.h' $GITHUB_WORKSPACE/vendor_repo/source/vendor/oplus/secure/common/bsp/drivers/oppo_secure_common/oppo_secure_common.c \
             && echo "[+] oppo_secure_common include drift fixed." \
             || { echo '[-] oppo_secure_common sed failed!'; exit 1; }
+
+          # Fix Windows line endings (^M) in Kconfig/Makefile files that break kconfig
+          find $GITHUB_WORKSPACE/vendor_repo/source/vendor -type f \( -name "Kconfig" -o -name "Makefile" \) -exec sed -i 's/\r$//' {} \;
+          echo "[+] Fixed Windows line endings in vendor repo"
           echo "[+] vendor/ in place — symlink targets resolved."
 
       # Visible replacement for the gated patch steps: prove the root stack is
