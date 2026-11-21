@@ -94,7 +94,7 @@ env:
   HOOK_METHOD: "syscall"
 
   
-  BASEBAND_GUARD_ENABLE: "true"
+  BASEBAND_GUARD_ENABLE: "false" # vendored in security/baseband-guard/, no external patch
   BASEBAND_GUARD_BOOT: "true"
 
   GENERATE_DTB: "false"
@@ -192,6 +192,7 @@ jobs:
           [ -d drivers/net/rekernel ] && ok "Re:Kernel driver present (drivers/net/rekernel)" || bad "Re:Kernel missing"
           [ -f arch/arm64/configs/droidspaces.config ] && ok "Droidspaces config fragment present" || bad "Droidspaces config missing"
           [ -f NoMount/kernel/src/nomount.c ] && ok "NoMount source present" || bad "NoMount source missing"
+          [ -d security/baseband-guard ] && ok "Baseband Guard vendored (security/baseband-guard)" || bad "Baseband Guard missing"
 
           for pair in "fs/namespace.c" "fs/notify/fdinfo.c" "fs/proc/task_mmu.c"; do
             n=$(grep -c 'CONFIG_KSU_SUSFS' "$pair" || true)
@@ -207,9 +208,20 @@ jobs:
           [ "$fail" -eq 0 ] || { echo '[-] root stack incomplete in this branch!'; exit 1; }
           echo '[+] root stack verified before the build (KSU + SUSFS + Re:Kernel + Droidspaces + NoMount).'
 
-      - name: 🛡️ Patch Baseband Guard
-        if: env.BASEBAND_GUARD_ENABLE == 'true'
-        uses: ./.github/workflows/patch-baseband-guard
+      - name: 🛡️ Verify vendored Baseband Guard
+        shell: bash
+        run: |
+          cd $GITHUB_WORKSPACE/device_kernel
+          # BBG is committed in this branch (security/baseband-guard). Running the
+          # upstream setup.sh on top would try to symlink over the in-tree driver
+          # and duplicate the Kconfig/Makefile wiring, so that step is disabled.
+          [ -f security/baseband-guard/baseband_guard.c ] || { echo '[-] BBG source missing'; exit 1; }
+          [ -f security/selinux/include/bbg_tracing.h ] || { echo '[-] BBG cred header missing'; exit 1; }
+          grep -q 'baseband-guard' security/Makefile || { echo '[-] BBG not wired into security/Makefile'; exit 1; }
+          grep -q 'security/baseband-guard/Kconfig' security/Kconfig || { echo '[-] BBG Kconfig not sourced'; exit 1; }
+          grep -q '^CONFIG_BBG=y' arch/arm64/configs/oppo6771_defconfig || { echo '[-] CONFIG_BBG missing from defconfig'; exit 1; }
+          grep -q '^CONFIG_SECURITYFS=y' arch/arm64/configs/oppo6771_defconfig || { echo '[-] CONFIG_SECURITYFS missing from defconfig'; exit 1; }
+          echo '[+] vendored Baseband Guard verified.'
 
       - name: 🚀 Build Process
         uses: ./.github/workflows/build-process
@@ -218,7 +230,8 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE/device_kernel
           echo "===== out/.config ====="
-          grep -E 'CONFIG_KSU=|CONFIG_KSU_SUSFS=|CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER=|CONFIG_REKERNEL=|CONFIG_NOMOUNT=|CONFIG_THREAD_INFO_IN_TASK=' out/.config || { echo '[-] KSU/SUSFS configs missing from out/.config!'; exit 1; }
+          grep -E 'CONFIG_KSU=|CONFIG_KSU_SUSFS=|CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER=|CONFIG_REKERNEL=|CONFIG_NOMOUNT=|CONFIG_THREAD_INFO_IN_TASK=|CONFIG_BBG=|CONFIG_SECURITYFS=' out/.config || { echo '[-] KSU/SUSFS/BBG configs missing from out/.config!'; exit 1; }
+          grep -q '^CONFIG_BBG=y' out/.config || { echo '[-] CONFIG_BBG was dropped by kconfig!'; exit 1; }
           grep -q '^CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER=y' out/.config || { echo '[-] 10th SUSFS feature (PRIORITY_UID_FILTER) was dropped by kconfig - BakaSU Kconfig lacks the option!'; exit 1; }
           echo "===== image ====="
           ls -l out/arch/arm64/boot/Image.gz-dtb
